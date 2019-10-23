@@ -76,7 +76,7 @@ def compare(dic1, dic2, marge_erreur = 0.1) :
         dic["fat"] = None
         
     try : 
-        dic["saturated_fat"] = dic2["saturated-fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["trans_fat"][0]["value"]) <= dic2["saturated-fat_100g"]*(1+marge_erreur)
+        dic["saturated_fat"] = dic2["saturated-fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["saturated_fat"][0]["value"]) <= dic2["saturated-fat_100g"]*(1+marge_erreur)
     except KeyError :
         dic["saturated_fat"] = None
         
