@@ -21,14 +21,11 @@ def get_nutrients_prediction(code):
        @ input  : code {string} "3228857000852"
        @ output : {dictionnary} nutrients prediction
     """
-    im_num = 1
-    nutrients = {"nutrients": {}}
-    
-    while nutrients == {"nutrients": {}} :
-        ocr_url = "https://static.openfoodfacts.org/images/products/" + split_bar_code(str(code)) + "/" + str(im_num) + ".json"
-        param = {"ocr_url" : ocr_url}
-        nutrients = requests.get("https://robotoff.openfoodfacts.org/api/v1/predict/nutrient", params = param).json()
-        im_num += 1
+    product_info = requests.get("https://world.openfoodfacts.org/api/v0/product/"+str(code)+".json").json()
+    imgid = product_info["product"]["images"]["nutrition_fr"]["imgid"]  
+    ocr_url = "https://static.openfoodfacts.org/images/products/" + split_bar_code(str(code)) + "/" + str(imgid) + ".json"
+    param = {"ocr_url" : ocr_url}
+    nutrients = requests.get("https://robotoff.openfoodfacts.org/api/v1/predict/nutrient", params = param).json()
         
     if nutrients == {'error': 'download_error', 'error_description': 'an error occurred during OCR JSON download'} :
         raise NotDownloadedError("Download error : an error occurred during OCR JSON download")
@@ -139,6 +136,7 @@ if __name__ == "__main__" :
                 
     # perform comparison for every product and write down results in result.csv file
     with open("result.csv", "a") as result :
+        result.write(";".join(["code", "nb_feature", "score1", "score2"]))
         for index in tqdm(range(len(product_ids))) :
             val = product_ids[index]
             try :
@@ -147,24 +145,6 @@ if __name__ == "__main__" :
                     dic2 = json.load(f)
                 dic = compare(dic1, dic2)
                 result.write(";".join([str(val), str(len([key for key in dic if dic[key] is not None])), str(score_1(dic)), str(score_2(dic))])+"\n")
-                
-                """
-                usefull to track missing nutrients
-                
-                dic1["nutrients"].pop("fat", None)
-                dic1["nutrients"].pop("saturated_fat", None)
-                dic1["nutrients"].pop("energy", None)
-                dic1["nutrients"].pop("sugar", None)
-                dic1["nutrients"].pop("salt", None)
-                dic1["nutrients"].pop("carbohydrate", None)
-                dic1["nutrients"].pop("protein", None)
-                dic1["nutrients"].pop("fiber", None)
-                
-                if len(dic1["nutrients"].keys()) != 0 :
-                    #print(dic1)
-                    raise KeyError("missing nutrient")
-                #print("\n")
-                """
 
                 
             except NotDownloadedError :
@@ -172,7 +152,4 @@ if __name__ == "__main__" :
                 
             except json.decoder.JSONDecodeError:
                 result.write(str(val)+";0;;\n")
-            
-            #if index%100 == 0 :
-            #    time.sleep(1)
 
