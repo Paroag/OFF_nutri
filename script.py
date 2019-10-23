@@ -38,49 +38,49 @@ def compare(dic1, dic2, marge_erreur = 0.1) :
        @ input  : dic1 {dictionnary} nutrients inputed by a user
                   dic2 {dictionnary} nutrients predicted by Robotoff
                   marge_erreur {int, float} (optionnal) tolerance range for the prediction, in portion of user inputed value
-       @ output : {dictionnary} Evaluation of every nutrient prediction with format { nutrient : prediction(nutrient)==user_input(nutrient) }
+       @ output : {dictionnary} Evaluation of every nutrient prediction with format { nutrient : (1 if prediction is correct, 0 if prediction is incorrect, -1 if we are lacking prediction or user input) }
     """
     dic = {}
     
     try :
-        dic["energy"] = dic2["energy_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["energy"][0]["value"]) <= dic2["energy_100g"]*(1+marge_erreur)
+        dic["energy"] = int(dic2["energy_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["energy"][0]["value"]) <= dic2["energy_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["energy"] = None
+        dic["energy"] = -1
         
     try :
-        dic["protein"] = dic2["proteins_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["protein"][0]["value"]) <= dic2["proteins_100g"]*(1+marge_erreur)
+        dic["protein"] = int(dic2["proteins_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["protein"][0]["value"]) <= dic2["proteins_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["protein"] = None
+        dic["protein"] = -1
         
     try : 
-        dic["carbohydrate"] = dic2["carbohydrates_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["carbohydrate"][0]["value"]) <= dic2["carbohydrates_100g"]*(1+marge_erreur)
+        dic["carbohydrate"] = int(dic2["carbohydrates_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["carbohydrate"][0]["value"]) <= dic2["carbohydrates_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["carbohydrate"] = None   
+        dic["carbohydrate"] = -1  
         
     try : 
-        dic["sugar"] = dic2["sugars_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["sugar"][0]["value"]) <= dic2["sugars_100g"]*(1+marge_erreur)
+        dic["sugar"] = int(dic2["sugars_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["sugar"][0]["value"]) <= dic2["sugars_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["sugar"] = None
+        dic["sugar"] = -1
         
     try : 
-        dic["salt"] = dic2["sodium_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["salt"][0]["value"]) <= dic2["sodium_100g"]*(1+marge_erreur)
+        dic["salt"] = int(dic2["sodium_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["salt"][0]["value"]) <= dic2["sodium_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["salt"] = None
+        dic["salt"] = -1
         
     try : 
-        dic["fat"] = dic2["fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["fat"][0]["value"]) <= dic2["fat_100g"]*(1+marge_erreur)
+        dic["fat"] = int(dic2["fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["fat"][0]["value"]) <= dic2["fat_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["fat"] = None
+        dic["fat"] = -1
         
     try : 
-        dic["saturated_fat"] = dic2["saturated-fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["saturated_fat"][0]["value"]) <= dic2["saturated-fat_100g"]*(1+marge_erreur)
+        dic["saturated_fat"] = int(dic2["saturated-fat_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["saturated_fat"][0]["value"]) <= dic2["saturated-fat_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["saturated_fat"] = None
+        dic["saturated_fat"] = -1
         
     try : 
-        dic["fiber"] = dic2["fiber_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["fiber"][0]["value"]) <= dic2["fiber_100g"]*(1+marge_erreur)
+        dic["fiber"] = int(dic2["fiber_100g"]*(1-marge_erreur) <= float(dic1["nutrients"]["fiber"][0]["value"]) <= dic2["fiber_100g"]*(1+marge_erreur))
     except KeyError :
-        dic["fiber"] = None
+        dic["fiber"] = -1
         
     return dic
 
@@ -110,8 +110,6 @@ def score_2 (dic) :
         return(round(sum(asint)/len(asint), 2))
     except ZeroDivisionError :
         return 0.
-            
-        
         
 if __name__ == "__main__" :
     
@@ -135,8 +133,9 @@ if __name__ == "__main__" :
                 product_ids.append(file[:-16])
                 
     # perform comparison for every product and write down results in result.csv file
-    with open("result.csv", "a") as result :
-        result.write(";".join(["code", "nb_feature", "score1", "score2"]))
+    nutriments_list = ["energy", "protein", "carbohydrate", "sugar", "salt", "fat", "saturated_fat", "fiber"]
+    with open("result.csv", "w") as result :
+        result.write(";".join(["code", "score1", "score2"]+nutriments_list)+"\n")
         for index in tqdm(range(len(product_ids))) :
             val = product_ids[index]
             try :
@@ -144,12 +143,11 @@ if __name__ == "__main__" :
                 with open(data_dir + val + ".nutriments.json") as f :
                     dic2 = json.load(f)
                 dic = compare(dic1, dic2)
-                result.write(";".join([str(val), str(len([key for key in dic if dic[key] is not None])), str(score_1(dic)), str(score_2(dic))])+"\n")
+                result.write(";".join([str(val)]+[str(dic[nutriment]) for nutriment in nutriments_list])+"\n")
 
-                
             except NotDownloadedError :
-                result.write(str(val)+";0;;\n")
+                result.write(str(val) + ";".join(["" for i in range(len(nutriments_list))])+"\n")
                 
             except json.decoder.JSONDecodeError:
-                result.write(str(val)+";0;;\n")
+                result.write(str(val) + ";".join(["" for i in range(len(nutriments_list))])+"\n")
 
