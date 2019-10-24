@@ -2,6 +2,9 @@ import requests
 import json
 import os
 import argparse
+
+from utils import soft_pop
+
 from tqdm import tqdm 
 
 class NotDownloadedError(Exception):
@@ -35,8 +38,8 @@ def get_nutrients_prediction(code):
 def compare(dic1, dic2, marge_erreur = 0.1) :
     """
      Compare nutrients value inputed by a user with nutrients prediction
-       @ input  : dic1 {dictionnary} nutrients inputed by a user
-                  dic2 {dictionnary} nutrients predicted by Robotoff
+       @ input  : dic1 {dictionnary} nutrients predicted by Robotoff
+                  dic2 {dictionnary} nutrients inputed by a user
                   marge_erreur {int, float} (optionnal) tolerance range for the prediction, in portion of user inputed value
        @ output : {dictionnary} Evaluation of every nutrient prediction with format { nutrient : (1 if prediction is correct, 0 if prediction is incorrect, -1 if we are lacking prediction or user input) }
     """
@@ -83,6 +86,18 @@ def compare(dic1, dic2, marge_erreur = 0.1) :
         dic["fiber"] = -1
         
     return dic
+    
+def format_prediction(dic1):
+    return([soft_pop(dic1["nutrients"], "energy", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "protein", [{"value":-1}])[0]["value"], \
+            soft_pop(dic1["nutrients"], "carbohydrate", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "sugar", [{"value":-1}])[0]["value"], \
+            soft_pop(dic1["nutrients"], "salt", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "fat", [{"value":-1}])[0]["value"], \
+            soft_pop(dic1["nutrients"], "saturated_fat", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "fiber", [{"value":-1}])[0]["value"]])
+
+def format_user_input(dic2) :
+    return([soft_pop(dic2, "energy_100g", -1), soft_pop(dic2, "proteins_100g", -1), \
+            soft_pop(dic2, "carbohydrates_100g", -1), soft_pop(dic2, "sugars_100g", -1), \
+            soft_pop(dic2, "sodium_100g", -1), soft_pop(dic2, "fat_100g", -1), \
+            soft_pop(dic2, "saturated-fat_100g", -1), soft_pop(dic2, "fiber_100g", -1)])
         
 if __name__ == "__main__" :
     
@@ -108,20 +123,16 @@ if __name__ == "__main__" :
     # perform comparison for every product and write down results in result.csv file
     nutriments_list = ["energy", "protein", "carbohydrate", "sugar", "salt", "fat", "saturated_fat", "fiber"]
     with open("result.csv", "w") as result :
-        result.write(";".join(["code"]+nutriments_list)+"\n")
+        result.write(";".join(["code"]+nutriments_list+[nutriment+"_predicted" for nutriment in nutriments_list])+"\n")
         for index in tqdm(range(len(product_ids))) :
             val = product_ids[index]
             try :
                 dic1 = get_nutrients_prediction(val)
                 with open(data_dir + val + ".nutriments.json") as f :
                     dic2 = json.load(f)
-                dic = compare(dic1, dic2)
-                result.write(";".join([str(val)]+[str(dic[nutriment]) for nutriment in nutriments_list])+"\n")
-
+                result.write(";".join([str(val)]+[str(val) for val in format_user_input(dic2)]+[str(val) for val in format_prediction(dic1)])+"\n")
             except NotDownloadedError :
                 pass                
             except json.decoder.JSONDecodeError :
-                pass
-            except KeyError :
                 pass
 
