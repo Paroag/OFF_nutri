@@ -2,6 +2,7 @@ import requests
 import json
 import os
 import argparse
+import pandas as pd
 
 from utils import soft_pop
 
@@ -88,12 +89,22 @@ def compare(dic1, dic2, marge_erreur = 0.1) :
     return dic
     
 def format_prediction(dic1):
+    """
+     get nutrient values from the document predicted by Robotoff
+       @ input  : dic1 {dictionnary} dic1 formatted dictionnary
+       @ output : {list} nutrients values [energy, protein, carbohydrate, sugar, salt, fat, saturated_fat, fiber]
+    """
     return([soft_pop(dic1["nutrients"], "energy", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "protein", [{"value":-1}])[0]["value"], \
             soft_pop(dic1["nutrients"], "carbohydrate", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "sugar", [{"value":-1}])[0]["value"], \
             soft_pop(dic1["nutrients"], "salt", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "fat", [{"value":-1}])[0]["value"], \
             soft_pop(dic1["nutrients"], "saturated_fat", [{"value":-1}])[0]["value"], soft_pop(dic1["nutrients"], "fiber", [{"value":-1}])[0]["value"]])
 
 def format_user_input(dic2) :
+    """
+     get nutrient values from the document from the database
+       @ input  : dic2 {dictionnary} dic2 formatted dictionnary
+       @ output : {list} nutrients values [energy, protein, carbohydrate, sugar, salt, fat, saturated_fat, fiber]
+    """
     return([soft_pop(dic2, "energy_100g", -1), soft_pop(dic2, "proteins_100g", -1), \
             soft_pop(dic2, "carbohydrates_100g", -1), soft_pop(dic2, "sugars_100g", -1), \
             soft_pop(dic2, "sodium_100g", -1), soft_pop(dic2, "fat_100g", -1), \
@@ -102,15 +113,17 @@ def format_user_input(dic2) :
 if __name__ == "__main__" :
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", required = True)
-    parser.add_argument("--verbose")
+    parser.add_argument("--data-dir", required = True, help = "data directory")
+    parser.add_argument("--reprise", action='store_true', help = "set this option to pursue job on a uncompleted result.csv file")
+    parser.add_argument("--verbose", action='store_true')
     args = parser.parse_args()
     arguments = args.__dict__
     
     data_dir = arguments.pop("data_dir")
     if data_dir[-1] != "/" :
         data_dir += "/"
-    #verbose = arguments.pop("verbose")
+    reprise = arguments.pop("reprise")
+    verbose = arguments.pop("verbose")
     
     
     # list all product ids (ie bar code) in the data_dir
@@ -120,10 +133,22 @@ if __name__ == "__main__" :
             if file[-16:] == ".nutriments.json" :
                 product_ids.append(file[:-16])
                 
+    mode_edition = "w"
+    
+    # Reprise on a previous incompleted job
+    if reprise is not None :
+        mode_edition = "a"
+        done_ids = pd.read_csv("result.csv", sep = ";").code.tolist()
+        while done_ids :
+            if product_ids.pop(0) == done_ids[0] :
+                done_ids.pop(0)
+        
+                
     # perform comparison for every product and write down results in result.csv file
     nutriments_list = ["energy", "protein", "carbohydrate", "sugar", "salt", "fat", "saturated_fat", "fiber"]
-    with open("result.csv", "w") as result :
-        result.write(";".join(["code"]+nutriments_list+[nutriment+"_predicted" for nutriment in nutriments_list])+"\n")
+    with open("result.csv", mode_edition) as result :
+        if mode_edition == "w" :
+            result.write(";".join(["code"]+nutriments_list+[nutriment+"_predicted" for nutriment in nutriments_list])+"\n")
         for index in tqdm(range(len(product_ids))) :
             val = product_ids[index]
             try :
@@ -134,5 +159,7 @@ if __name__ == "__main__" :
             except NotDownloadedError :
                 pass                
             except json.decoder.JSONDecodeError :
+                pass
+            except KeyError:
                 pass
 

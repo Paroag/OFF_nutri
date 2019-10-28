@@ -1,5 +1,4 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 
 def score_1 (dic) :
     """
@@ -27,13 +26,66 @@ def score_2 (dic) :
         return(round(sum(asint)/len(asint), 2))
     except ZeroDivisionError :
         return 0.
+    
+def ndiff(row, nutriment) :
+    if row[nutriment] == -1 or row[nutriment+"_predicted"]==-1 :
+        return None
+    else :
+        return int(row[nutriment]-row[nutriment+"_predicted"])
             
 if __name__ == "__main__" :
     
     nutriments_list = ["energy", "protein", "carbohydrate", "sugar", "salt", "fat", "saturated_fat", "fiber"]
-    df = pd.read_csv("result.csv", sep = ";")
     
-    fig, axes = plt.subplots(nrows=3, ncols=3)
-    for index, nutriment in enumerate(nutriments_list) :
-        df[nutriment].value_counts().plot.pie(ax = axes[index//3, index%3])
+    df = pd.read_csv("tmp.csv", sep = ";")#, nrows = 11000)
+    """
+    for nutriment in nutriments_list :
+        df[nutriment+"_diff"] = df.apply(ndiff, nutriment=nutriment, axis = 1)
+    """
+   
+### Error repartition per nutrient    
+    
+    df_result = pd.DataFrame(index = nutriments_list, columns = ["correct", "incorrect", "not specified", "not predicted"]).fillna(0)
+
+    for index, row in df.iterrows():
+        for nutriment in nutriments_list :
+            if row[nutriment] == -1 :
+                df_result["not specified"][nutriment] += 1
+            elif row[nutriment+"_predicted"] == -1:
+                df_result["not predicted"][nutriment] += 1
+            elif row[nutriment+"_predicted"] == row[nutriment] :
+                df_result["correct"][nutriment] += 1
+            elif row[nutriment+"_predicted"] != row[nutriment] :
+                df_result["incorrect"][nutriment] += 1
+                
+    
+    df_result.plot.bar(stacked = True).legend(bbox_to_anchor=(1.35, 1.030))
+    
+### totally corrected predicted product
+    
+    df_2 = pd.DataFrame(index = ["détection complète", "détection partielle"], columns = ["prévision correcte", "prévision incorrecte"]).fillna(0)
+    for index, row in df.iterrows() :
+        state = "détection complète"
+        veracity = "prévision correcte"
+        for nutriment in nutriments_list :
+            if row[nutriment] != -1 and row[nutriment+"_predicted"] == -1 :
+                state = "détection partielle"
+            if row[nutriment+"_predicted"]!= -1 and row[nutriment] != row[nutriment+"_predicted"]:
+                veracity = "prévision incorrecte"
+        df_2[veracity][state] += 1
+    df_2.plot.bar(stacked = True).legend(bbox_to_anchor=(1.00, 1.030))
         
+                
+
+### Heatmap for each nutrient
+    
+"""
+    for nutriment in nutriments_list[1:] :
+        heatmap = np.zeros([101, 101])
+        for index, row in df.iterrows():
+            if row[nutriment] != -1 and row[nutriment+"_predicted"]!= -1 :
+                if row[nutriment] != row[nutriment+"_predicted"] :
+                    heatmap[int(row[nutriment])][min(int(row[nutriment+"_predicted"]), 100)] += 1
+        plt.imshow(heatmap)
+        plt.show()        
+"""
