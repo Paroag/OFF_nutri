@@ -105,7 +105,7 @@ def format_user_input(dic2) :
        @ input  : dic2 {dictionnary} dic2 formatted dictionnary
        @ output : {list} nutrients values [energy, protein, carbohydrate, sugar, salt, fat, saturated_fat, fiber]
     """
-    return([soft_pop(dic2, "energy_100g", -1), soft_pop(dic2, "proteins_100g", -1), \
+    return([soft_pop(dic2, "energy_value", -1), soft_pop(dic2, "proteins_100g", -1), \
             soft_pop(dic2, "carbohydrates_100g", -1), soft_pop(dic2, "sugars_100g", -1), \
             soft_pop(dic2, "sodium_100g", -1), soft_pop(dic2, "fat_100g", -1), \
             soft_pop(dic2, "saturated-fat_100g", -1), soft_pop(dic2, "fiber_100g", -1)])
@@ -132,11 +132,12 @@ if __name__ == "__main__" :
         for file in f :
             if file[-16:] == ".nutriments.json" :
                 product_ids.append(file[:-16])
+    product_ids.sort()
                 
     mode_edition = "w"
     
     # Reprise on a previous incompleted job
-    if reprise is not None :
+    if reprise :
         mode_edition = "a"
         done_ids = pd.read_csv("result.csv", sep = ";").code.tolist()
         while done_ids :
@@ -155,7 +156,23 @@ if __name__ == "__main__" :
                 dic1 = get_nutrients_prediction(val)
                 with open(data_dir + val + ".nutriments.json") as f :
                     dic2 = json.load(f)
-                result.write(";".join([str(val)]+[str(val) for val in format_user_input(dic2)]+[str(val) for val in format_prediction(dic1)])+"\n")
+                
+                try :
+                    if dic1["nutrients"]["energy"][0]["unit"].lower() == "kj" :
+                        dic1["nutrients"]["energy"][0]["value"] = str(int(float(dic1["nutrients"]["energy"][0]["value"])/4.184))
+                        dic1["nutrients"]["energy"][0]["unit"] = "kcal"
+                except KeyError:
+                    pass
+
+                try :
+                    if dic2["energy_unit"].lower() == "kj" :
+                        dic2["energy_unit"] = "kcal"
+                        dic2["energy_value"] = int(float(dic2["energy_value"])/4.184)
+                except KeyError :
+                    pass
+                      
+                result.write(";".join([str(val)]+[str(i) for i in format_user_input(dic2)]+[str(i) for i in format_prediction(dic1)])+"\n")
+                
             except NotDownloadedError :
                 pass                
             except json.decoder.JSONDecodeError :
